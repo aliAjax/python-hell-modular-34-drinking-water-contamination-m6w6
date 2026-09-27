@@ -1,5 +1,5 @@
 from . import domain, rules
-from .domain import DomainError
+from .domain import ConflictError, DomainError
 
 
 class Service:
@@ -53,6 +53,16 @@ class Service:
         self.repository.apply_action(
             item_id, action, actor, role, new_status, new_payload, event_payload, expected_version
         )
+        if action in rules.SEAL_RELEASE_ACTIONS:
+            blockers = rules.blocking_events(
+                self.repository.list_items(), item["payload"].get("zone_ids", []), exclude_id=item_id
+            )
+            if blockers:
+                raise ConflictError(
+                    "zone_events_open",
+                    "仍有 %d 起关联事件未结束，区域封控未解除" % len(blockers),
+                    extra={"open_events": blockers},
+                )
         return self.get_item(item_id)
 
     def get_item(self, item_id):
@@ -66,4 +76,6 @@ class Service:
         return self.repository.list_items(status)
 
     def state(self):
-        return self.repository.state_summary()
+        summary = self.repository.state_summary()
+        summary["zones"] = rules.zone_overview(summary["items"])
+        return summary

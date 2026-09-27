@@ -1,5 +1,59 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>饮用水污染响应</title><body><h1>市政饮用水污染响应</h1><p>使用 JSON API 创建污染事件、登记水源或管网记录，并完成复检、通知、冲洗、消毒和恢复。</p><pre>GET /health
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>饮用水污染响应</title>
+<style>
+body { font-family: sans-serif; margin: 2em; }
+table { border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #ccc; padding: 4px 12px; text-align: left; }
+.sealed { color: #b00020; font-weight: bold; }
+.released { color: #087f23; }
+</style>
+<body>
+<h1>市政饮用水污染响应</h1>
+<p>使用 JSON API 创建污染事件、登记水源或管网记录，并完成复检、通知、冲洗、消毒和恢复。区域封控由所有关联事件共同决定：任一关联事件未结束时区域保持封控，全部结束后自动解除。</p>
+<h2>区域封控状态</h2>
+<table id="zone-table">
+<thead><tr><th>区域</th><th>封控状态</th><th>未结事件数</th><th>未结事件</th></tr></thead>
+<tbody></tbody>
+</table>
+<p id="zone-empty" hidden>暂无区域记录。</p>
+<h2>接口</h2>
+<pre>GET /health
 GET /api/state
 POST /api/items
 POST /api/items/{id}/sources
-POST /api/items/{id}/actions</pre></body></html>
+POST /api/items/{id}/actions</pre>
+<script>
+(function () {
+  var tbody = document.querySelector("#zone-table tbody");
+  var empty = document.getElementById("zone-empty");
+  function cell(row, text, className) {
+    var td = document.createElement("td");
+    if (className) td.className = className;
+    td.textContent = text;
+    row.appendChild(td);
+  }
+  function render(zones) {
+    tbody.innerHTML = "";
+    empty.hidden = zones.length > 0;
+    zones.forEach(function (zone) {
+      var row = document.createElement("tr");
+      cell(row, zone.zone_id);
+      cell(row, zone.sealed ? "封控中" : "已解除", zone.sealed ? "sealed" : "released");
+      cell(row, String(zone.open_count));
+      cell(row, (zone.open_item_ids || []).join(", ") || "-");
+      tbody.appendChild(row);
+    });
+  }
+  function refresh() {
+    fetch("/api/state").then(function (resp) { return resp.json(); }).then(function (state) {
+      render(state.zones || []);
+    }).catch(function () {});
+  }
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+</body>
+</html>

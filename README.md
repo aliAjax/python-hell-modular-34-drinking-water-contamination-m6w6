@@ -17,3 +17,5 @@ python3 -m unittest discover -s tests -v
 ```
 
 接口包括 `GET /health`、`GET /api/state`、`POST /api/items`、`POST /api/items/<id>/sources`、`POST /api/items/<id>/actions` 和审计查询。测试覆盖完整响应流程、重复事件、重复通知、复检阈值、权限和版本冲突。内置规则不替代真实水质模型、法定通报渠道或供水控制系统的联锁。
+
+区域封控由所有关联事件共同决定：新建事件后相关区域进入封控；恢复或取消某条事件时，若其区域仍有关联事件未结束，接口返回 `409` 并在 `open_events` 中列出未结事件，区域保持封控，全部结束后自动解除。`GET /api/state` 的 `zones` 字段按区域返回封控状态和未结数量，首页同步展示。

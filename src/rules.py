@@ -17,6 +17,50 @@ ACTION_ROLES = {
 ENFORCE_REGION = False
 REGION_SENSITIVE_ACTIONS = set()
 ACTION_REQUIRES_VERSION = {"advise", "switch_source", "flush", "disinfect", "sample", "restore", "cancel"}
+TERMINAL_STATUSES = {"restored", "cancelled"}
+SEAL_RELEASE_ACTIONS = {"restore", "cancel"}
+
+
+def _zones_of(item):
+    return list(item["payload"].get("zone_ids", []))
+
+
+def blocking_events(items, zone_ids, exclude_id=None):
+    """仍占用指定区域的未结束事件，恢复/取消需等待它们全部结束。"""
+    wanted = set(zone_ids)
+    blockers = []
+    for item in items:
+        if exclude_id is not None and item["id"] == exclude_id:
+            continue
+        if item["status"] in TERMINAL_STATUSES:
+            continue
+        shared = sorted(wanted & set(_zones_of(item)))
+        if not shared:
+            continue
+        blockers.append({
+            "id": item["id"],
+            "status": item["status"],
+            "zone_ids": _zones_of(item),
+            "shared_zones": shared,
+            "source_id": item["payload"].get("source_id"),
+            "contaminant": item["payload"].get("contaminant"),
+        })
+    return blockers
+
+
+def zone_overview(items):
+    """按区域汇总封控状态和未结事件数量，供首页展示。"""
+    zones = {}
+    for item in items:
+        for zone_id in _zones_of(item):
+            entry = zones.setdefault(
+                zone_id, {"zone_id": zone_id, "sealed": False, "open_count": 0, "open_item_ids": []}
+            )
+            if item["status"] not in TERMINAL_STATUSES:
+                entry["sealed"] = True
+                entry["open_count"] += 1
+                entry["open_item_ids"].append(item["id"])
+    return [zones[key] for key in sorted(zones)]
 
 
 def assess(payload):
