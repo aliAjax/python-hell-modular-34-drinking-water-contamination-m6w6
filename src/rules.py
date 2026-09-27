@@ -17,6 +17,42 @@ ACTION_ROLES = {
 ENFORCE_REGION = False
 REGION_SENSITIVE_ACTIONS = set()
 ACTION_REQUIRES_VERSION = {"advise", "switch_source", "flush", "disinfect", "sample", "restore", "cancel"}
+TERMINAL_STATUSES = {"restored", "cancelled"}
+ZONE_RELEASE_ACTIONS = {"restore", "cancel"}
+
+
+def is_open(item):
+    return item["status"] not in TERMINAL_STATUSES
+
+
+def item_zones(item):
+    return item["payload"].get("zone_ids", [])
+
+
+def zone_statuses(items):
+    """按区域汇总封控状态和未结事件数：任一关联事件未结束，区域即处于封控。"""
+    zones = {}
+    for item in items:
+        for zone_id in item_zones(item):
+            entry = zones.setdefault(zone_id, {"zone_id": zone_id, "locked": False, "open_events": 0})
+            if is_open(item):
+                entry["locked"] = True
+                entry["open_events"] += 1
+    return [zones[key] for key in sorted(zones)]
+
+
+def open_zone_events(items, zone_ids, exclude_id=None):
+    """列出与给定区域相关且仍未结束的事件。"""
+    wanted = set(zone_ids)
+    result = []
+    for item in items:
+        if exclude_id is not None and item["id"] == exclude_id:
+            continue
+        if not is_open(item):
+            continue
+        if wanted.intersection(item_zones(item)):
+            result.append(item)
+    return result
 
 
 def assess(payload):

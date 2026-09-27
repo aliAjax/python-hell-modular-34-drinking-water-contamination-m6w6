@@ -1,5 +1,5 @@
 from . import domain, rules
-from .domain import DomainError
+from .domain import DomainError, ConflictError
 
 
 class Service:
@@ -53,6 +53,21 @@ class Service:
         self.repository.apply_action(
             item_id, action, actor, role, new_status, new_payload, event_payload, expected_version
         )
+        if action in rules.ZONE_RELEASE_ACTIONS:
+            blocking = rules.open_zone_events(
+                self.repository.list_items(), rules.item_zones(item), exclude_id=item_id
+            )
+            if blocking:
+                raise ConflictError(
+                    "zone_events_open",
+                    "关联区域仍存在未结束的污染事件，区域封控未解除",
+                    extra={
+                        "open_events": [
+                            {"id": event["id"], "status": event["status"], "zone_ids": rules.item_zones(event)}
+                            for event in blocking
+                        ]
+                    },
+                )
         return self.get_item(item_id)
 
     def get_item(self, item_id):
@@ -66,4 +81,6 @@ class Service:
         return self.repository.list_items(status)
 
     def state(self):
-        return self.repository.state_summary()
+        summary = self.repository.state_summary()
+        summary["zones"] = rules.zone_statuses(summary["items"])
+        return summary

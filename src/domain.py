@@ -2,15 +2,16 @@ from datetime import datetime
 
 
 class DomainError(Exception):
-    def __init__(self, code, message, status=400):
+    def __init__(self, code, message, status=400, extra=None):
         super().__init__(message)
         self.code = code
         self.status = status
+        self.extra = extra or {}
 
 
 class ConflictError(DomainError):
-    def __init__(self, code, message):
-        super().__init__(code, message, 409)
+    def __init__(self, code, message, extra=None):
+        super().__init__(code, message, 409, extra=extra)
 
 
 class NotFoundError(DomainError):

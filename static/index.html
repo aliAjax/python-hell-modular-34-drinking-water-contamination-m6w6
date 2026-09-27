@@ -1,5 +1,32 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>饮用水污染响应</title><body><h1>市政饮用水污染响应</h1><p>使用 JSON API 创建污染事件、登记水源或管网记录，并完成复检、通知、冲洗、消毒和恢复。</p><pre>GET /health
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>饮用水污染响应</title><body><h1>市政饮用水污染响应</h1><p>使用 JSON API 创建污染事件、登记水源或管网记录，并完成复检、通知、冲洗、消毒和恢复。</p><h2>区域封控状态</h2><table id="zones" border="1" cellpadding="4" cellspacing="0"><thead><tr><th>区域</th><th>封控状态</th><th>未结事件数</th></tr></thead><tbody><tr><td colspan="3">加载中…</td></tr></tbody></table><pre>GET /health
 GET /api/state
 POST /api/items
 POST /api/items/{id}/sources
-POST /api/items/{id}/actions</pre></body></html>
+POST /api/items/{id}/actions</pre><script>
+async function refreshZones() {
+  const tbody = document.querySelector("#zones tbody");
+  try {
+    const resp = await fetch("/api/state");
+    const data = await resp.json();
+    const zones = data.zones || [];
+    tbody.innerHTML = "";
+    if (!zones.length) {
+      tbody.innerHTML = "<tr><td colspan=\"3\">暂无区域</td></tr>";
+      return;
+    }
+    for (const zone of zones) {
+      const row = document.createElement("tr");
+      const status = zone.locked ? "封控中" : "已解除";
+      row.innerHTML = "<td></td><td></td><td></td>";
+      row.children[0].textContent = zone.zone_id;
+      row.children[1].textContent = status;
+      row.children[2].textContent = zone.open_events;
+      tbody.appendChild(row);
+    }
+  } catch (err) {
+    tbody.innerHTML = "<tr><td colspan=\"3\">状态加载失败</td></tr>";
+  }
+}
+refreshZones();
+setInterval(refreshZones, 5000);
+</script></body></html>
